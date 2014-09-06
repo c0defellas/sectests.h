@@ -1,0 +1,14 @@
+# Binaries #
+test
+tiny
+
+# Dependency files #
+*.d
+
+# Compiled objects #
+*.o
+*.so
+
+# Editor backups #
+*~
+\#*#
