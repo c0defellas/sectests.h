@@ -2,7 +2,7 @@
  *  Copyright 2014 c0defellas
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
+ *  you may not use this name except in compliance with the License.
  *  You may obtain a copy of the License at
  *
  *  http://www.apache.org/licenses/LICENSE-2.0
@@ -28,16 +28,17 @@
 #include <fcntl.h>
 #include <string.h>
 #include <linux/limits.h>
+#include <sys/wait.h>
 
 
 struct tiny
 {
 	char *folder;
-	char *file;
-	char path[PATH_MAX];
-	int file_size;
-	char cmd_esp_1[PATH_MAX + 30];
-	char cmd_esp_2[PATH_MAX + 30];
+	char *name;
+	char full_path[PATH_MAX];
+	int size;
+	char *cmd_1[10];
+	char *cmd_2[10];
 } tiny;
 
 /* Tiny x86 binary that saves the esp for later analysis  */
@@ -79,85 +80,144 @@ static int make_tiny_exec(void)
 	int written;
 
 	tiny.folder = "/tmp";
-	tiny.file = "tiny";
+	tiny.name = "tiny";
 
-	strcpy(tiny.path, tiny.folder);
-	strcat(tiny.path, "/");
-	strcat(tiny.path, tiny.file);
+	strcpy(tiny.full_path, tiny.folder);
+	strcat(tiny.full_path, "/");
+	strcat(tiny.full_path, tiny.name);
 
-	strcpy(tiny.cmd_esp_1, tiny.path);
-	strcat(tiny.cmd_esp_1, " esp 1");
+	tiny.cmd_1[0] = tiny.full_path;
+	tiny.cmd_1[1] = "esp";
+	tiny.cmd_1[2] = "1";
+	tiny.cmd_1[3] = NULL;
 
-	strcpy(tiny.cmd_esp_2, tiny.path);
-	strcat(tiny.cmd_esp_2, " esp 2");
+	tiny.cmd_2[0] = tiny.full_path;
+	tiny.cmd_2[1] = "esp";
+	tiny.cmd_2[2] = "2";
+	tiny.cmd_2[3] = NULL;
 
-	tiny.file_size = 460;
+	tiny.size = 460;
 
-	fd = open(tiny.path, O_CREAT | O_WRONLY, S_IRWXU);
+	fd = open(tiny.full_path, O_CREAT | O_WRONLY, S_IRWXU);
 	if (fd < 0) {
-		fprintf(stderr, "Can't open %s\n", tiny.path);
+		fprintf(stderr, "Can't open %s\n", tiny.full_path);
 		return -1;
 	}
 
-	written = write(fd, tiny_bytecode, tiny.file_size);
-	if (written < tiny.file_size) {
-		fprintf(stderr, "Written only %d of %d bytes\n", written, tiny.file_size);
+	written = write(fd, tiny_bytecode, tiny.size);
+	if (written < tiny.size) {
+		fprintf(stderr, "Written only %d of %d bytes\n", written, tiny.size);
 		ret = -1;
 	}
 
 	if (close(fd) < 0)
-		fprintf(stderr, "Can't close %s\n", tiny.path);
+		fprintf(stderr, "Can't close %s\n", tiny.full_path);
 
 	return ret;
 }
 
-static void unmake_tiny_exec(void)
+/* return 1 on success */
+static int aslr_enabled(void)
 {
+	int pid, c1, c2;
+	FILE *f1, *f2;
+	char cdir[PATH_MAX];
+
+	if (make_tiny_exec())
+		return -1;
+
+	if (!getcwd(cdir, PATH_MAX)) {
+		fprintf(stderr, "Was not possible to get current working directory\n");
+		return -1;
+	}
+
+	if (chdir(tiny.folder) < 0) {
+		fprintf(stderr, "Was not possible to change cwd to %s\n", tiny.folder);
+		return -1;
+	}
+
+	pid = fork();
+	if (pid == 0) {
+		execve(tiny.full_path, tiny.cmd_1, NULL);
+		fprintf(stderr, "Was not possible to exec %s\n", tiny.full_path);
+	}
+	else if (pid < 0) {
+		fprintf(stderr, "Was not possible to fork\n");
+		return -1;
+	}
+	wait(&pid);
+
+	pid = fork();
+	if (pid == 0) {
+		execve(tiny.full_path, tiny.cmd_2, NULL);
+		fprintf(stderr, "Was not possible to exec %s\n", tiny.full_path);
+	}
+	else if (pid < 0) {
+		fprintf(stderr, "Was not possible to fork\n");
+		return -1;
+	}
+	wait(&pid);
+
+	f1 = fopen("addr1", "r");
+	if (!f1) {
+		fprintf(stderr, "Was not possible to open addr1\n");
+		return -1;
+	}
+
+  	f2 = fopen("addr2", "r");
+	if (!f2) {
+		fprintf(stderr, "Was not possible to open addr2\n");
+		fclose(f1);
+		return -1;
+	}
+
+	c1 = getc(f1);
+	c2 = getc(f2);
+
+	while ((c1 != EOF) && (c2 != EOF) && (c1 == c2)) {
+		c1 = getc(f1);
+		c2 = getc(f2);
+	}
+
+	if (fclose(f1)) {
+		fprintf(stderr, "Was not possible to close addr1\n");
+		exit(-1);
+	}
+
+	if (fclose(f2)) {
+		fprintf(stderr, "Was not possible to close addr2\n");
+		exit(-1);
+	}
+
 	if (remove("addr1") < 0)
 		fprintf(stderr, "Was not possible to remove addr1\n");
 	if (remove("addr2") < 0)
 		fprintf(stderr, "Was not possible to remove addr2\n");
-	if (remove(tiny.file) < 0)
-		fprintf(stderr, "Was not possible to remove %s\n", tiny.file);
+	if (remove(tiny.name) < 0)
+		fprintf(stderr, "Was not possible to remove %s\n", tiny.name);
+
+	if (chdir(cdir) < 0) {
+		fprintf(stderr, "Was not possible to change cwd to %s\n", cdir);
+		exit(-1);
+	}
+
+	return (c1 != c2);
 }
 
-static _Bool aslr_enabled(void)
-{
-	system(tiny.cmd_esp_1);
-	system(tiny.cmd_esp_2);
-
-	return !(system("diff addr1 addr2 1> /dev/null") == 0);
-}
-
-static _Bool pie_enabled(void)
+static int pie_enabled(void)
 {
 	//search in the own elf header
 	return 1;
 }
 
-static _Bool nx_enabled(void){
+static int nx_enabled(void){
 	//search in the own elf header
 	return 1;
 }
 
-/* Must be called from outside  */
+/* Must be called from outside	*/
 static void sec_tests(void)
 {
-	char cdir[PATH_MAX];
-
-	if (make_tiny_exec())
-		return;
-
-	if (!getcwd(cdir, PATH_MAX)) {
-		fprintf(stderr, "Was not possible to get current working directory\n");
-		return;
-	}
-
-	if (chdir(tiny.folder) < 0) {
-		fprintf(stderr, "Was not possible change cwd to %s\n", tiny.folder);
-		return;
-	}
-
 	if (!aslr_enabled())
 		fprintf(stderr, "ASLR is not enabled\n");
 
@@ -166,10 +226,6 @@ static void sec_tests(void)
 
 	if (!nx_enabled())
 		fprintf(stderr, "This binary is not NX\n");
-
-	unmake_tiny_exec();
-
-	chdir(cdir);
 }
 
 #endif

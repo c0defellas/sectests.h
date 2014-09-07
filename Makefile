@@ -22,7 +22,7 @@ PROJECT		:= sectests
 BINFOLDER	:= bin
 BIN		:= $(BINFOLDER)/$(PROJECT)
 CC		:= gcc
-CCFLAGS		:= -m64
+CFLAGS		:= -Wall -Werror -O2
 
 PHONY: all
 

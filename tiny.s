@@ -18,18 +18,18 @@
  *  Tiny executable that saves the esp in addr1 and addr2 files for later analysis
  *
  *  Compiling:
- *	$ as tiny.s -o tiny.o --32
- *	$ ld -m elf_i386 tiny.o -o tiny
+ *     $ as tiny.s -o tiny.o --32
+ *     $ ld -m elf_i386 tiny.o -o tiny
  *
  *  Extracting bytecode:
- *	$ hexdump -v -e '"\\""x" 1/1 "%02x" ""' tiny
+ *     $ hexdump -v -e '"\\""x" 1/1 "%02x" ""' tiny
  *
  *  Usage:
- *	$ ./tiny esp 1
- *      $ ./tiny esp 2
+ *     $ ./tiny esp 1
+ *     $ ./tiny esp 2
  */
 
-	.text
+.text
 
 .global _start
 
@@ -90,6 +90,6 @@ write:
 
 _esp_str:	.string "esp"
 _one:		.string "1"
-_two:		.string "2"
-_file1_str:	.string "addr1"
-_file2_str:	.string "addr2"
+_two:	   	.string "2"
+_file1_str:   	.string "addr1"
+_file2_str:   	.string "addr2"
