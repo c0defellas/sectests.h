@@ -117,7 +117,7 @@ static int make_tiny_exec(void)
 }
 
 /* return 1 on success */
-static int aslr_enabled(void)
+static int aslr_enabled_1(void)
 {
 	int pid, c1, c2;
 	FILE *f1, *f2;
@@ -204,6 +204,62 @@ static int aslr_enabled(void)
 	return (c1 != c2);
 }
 
+static int aslr_enabled_2(void)
+{
+	tiny.folder = "/usr/bin";
+	tiny.name = "awk";
+
+	strcpy(tiny.full_path, tiny.folder);
+	strcat(tiny.full_path, "/");
+	strcat(tiny.full_path, tiny.name);
+
+	tiny.cmd_1[0] = tiny.full_path;
+	tiny.cmd_1[1] = "-F";
+	tiny.cmd_1[2] = "-";
+	tiny.cmd_1[3] = "/stack/{print $1}";
+	tiny.cmd_1[4] = "/proc/self/maps";
+	tiny.cmd_1[5] = NULL;
+
+	int pid, times = 0;
+	int pipefd[2];
+	char buffer1[16] = {0};
+	char buffer2[16] = {0};
+
+	pipe(pipefd);
+
+_fork:
+	times++;
+	pid = fork();
+	if (pid == 0) {
+		close(pipefd[0]);
+		dup2(pipefd[1], 1);
+		dup2(pipefd[1], 2);
+		close(pipefd[1]);
+		execv(tiny.full_path, tiny.cmd_1);
+		fprintf(stderr, "Was not possible to exec %s\n", tiny.full_path);
+	}
+	else if (pid < 0) {
+		fprintf(stderr, "Was not possible to fork\n");
+		return -1;
+	}
+
+	if (times != 2) {
+		read(pipefd[0], buffer1, sizeof(buffer1));
+		goto _fork;
+	}
+	else {
+		read(pipefd[0], buffer2, sizeof(buffer2));
+	}
+	close(pipefd[1]);
+
+	for (int i = 0; i < 16; i++) {
+		if (buffer1[i] != buffer2[i])
+			return 1;
+	}
+
+	return 0;
+}
+
 static int pie_enabled(void)
 {
 	//search in the own elf header
@@ -218,7 +274,7 @@ static int nx_enabled(void){
 /* Must be called from outside	*/
 static void sec_tests(void)
 {
-	if (!aslr_enabled())
+	if (!aslr_enabled_2())
 		fprintf(stderr, "ASLR is not enabled\n");
 
 	if (!pie_enabled())
