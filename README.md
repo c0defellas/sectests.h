@@ -7,9 +7,9 @@ sectests.h - C header for testing binary and system security
 Usage
 -----
 
-Compiling:
+Compiling options:
 
-`make`
+`make`        
 `make nx_off`
 
 Testing:
