@@ -1,6 +1,5 @@
 # Binaries #
-sectests
-tiny
+test
 
 # Dependency files #
 *.d
@@ -8,9 +7,6 @@ tiny
 # Compiled objects #
 *.o
 *.so
-
-# Folders #
-bin/
 
 # Editor backups #
 *~
