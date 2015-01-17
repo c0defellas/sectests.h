@@ -1,19 +1,20 @@
 sectests.h
 ==========
 
-sectests.h - C header for testing binary security
+sectests.h - C header for testing binary and system security
 
 
 Usage
 -----
 
-Compiling:
+Compiling options:
 
-`make`
+`make`        
+`make nx_off`
 
 Testing:
 
-`./sectests`
+`./test`
 
 Cleaning (objects):
 

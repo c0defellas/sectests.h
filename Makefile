@@ -18,20 +18,20 @@
 # sectests Makefile
 #
 
-PROJECT		:= sectests
-BINFOLDER	:= bin
-BIN		:= $(BINFOLDER)/$(PROJECT)
+TARGET		:= test
 CC		:= gcc
-CFLAGS		:= -Wall -Wextra -O2 --std=c11
+CFLAGS		:= -Wall -Wextra -O2
 
 PHONY: all
 
 all:
 	@echo Compiling
-	@mkdir -p $(BINFOLDER)
-	@$(CC) $(CFLAGS) $(PROJECT).c -o $(BIN)
-	@ln -sf $(BIN) $(PROJECT)
+	@$(CC) $(CFLAGS) $(TARGET).c -o $(TARGET)
+	
+nx_off:
+	@echo Compiling
+	@$(CC) $(CFLAGS) -zexecstack $(TARGET).c -o $(TARGET)
+	
 clean:
 	@echo Cleaning
-	@rm -fr $(BINFOLDER)
-	@rm -f $(PROJECT)
+	@rm -f $(TARGET)
