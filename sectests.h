@@ -115,8 +115,8 @@ static int nx_test(void){
 		exit(0);
 	}
 	
-	wait(&s1);
-	
+	waitpid(pid, &s1, 0);
+
 	/* test NX malloc */
 	mallocvar = malloc(2);
 	if(mallocvar == NULL)
@@ -133,8 +133,8 @@ static int nx_test(void){
 		exit(0);
 	}
 	
-	wait(&s2);
-	
+	waitpid(pid, &s2, 0);
+
 	return (WIFEXITED(s1) || WIFEXITED(s2)) ? 0 : ST_NXFLAG;
 }
 
